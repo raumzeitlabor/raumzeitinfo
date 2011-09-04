@@ -18,6 +18,7 @@ my %opt = (
     port    => 6667,
     server  => 'irc.hackint.eu',
     rejoin  => 3600,  # in seconds
+    refresh => 60,    # in seconds
 );
 
 my $init = 1;
@@ -58,7 +59,7 @@ $irc->send_srv(JOIN => ($opt{channel}));
 
 $feed_reader = AnyEvent::Feed->new (
     url      => 'http://raumzeitlabor.de/w/index.php5?title=Spezial:Letzte_%C3%84nderungen&feed=atom',
-    interval => 5,
+    interval => $opt{refresh},
     on_fetch => sub {
         my ($feed_reader, $new_entries, $feed, $error) = @_;
 
@@ -71,7 +72,7 @@ $feed_reader = AnyEvent::Feed->new (
             my ($hash, $entry) = @$_;
 
             unless ($init) {
-                my $msg = "Update: ".$entry->title." von ".$entry->author." um ".
+                my $msg = "Update: \"".$entry->title."\" von ".$entry->author." um ".
                     $entry->modified->time." Uhr (".$entry->id.")";
                 print DateTime->now." - ".$msg."\n";
                 $irc->send_chan($opt{channel}, PRIVMSG => ($opt{channel}, $msg));
