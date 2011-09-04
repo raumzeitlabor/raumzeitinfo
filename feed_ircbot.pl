@@ -28,7 +28,7 @@ GetOptions(\%opt, 'channel', 'nick', 'port', 'server', 'rejoin',);
 my $irc = new AnyEvent::IRC::Client;
 $irc->connect($opt{server}, $opt{port}, { nick => $opt{nick}});
 
-$irc->reg_cb(registered => sub { print DateTime->now." - Connected to ".$opt{network}."\n"; });
+$irc->reg_cb(registered => sub { print DateTime->now." - Connected to ".$opt{server}."\n"; });
 $irc->reg_cb(join => sub { print DateTime->now." - Joined channel ".$opt{channel}."\n"; });
 
 # if we get kicked, we either rejoin after some time or leave the network
