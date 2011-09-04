@@ -5,39 +5,42 @@ use warnings;
 
 use EV;
 use DateTime;
+use Getopt::Long;
 use AnyEvent;
 use AnyEvent::Feed;
 use AnyEvent::IRC::Client;
 
-use constant {
-    BOTNICK => 'RaumZeitWiki',
-    IRC_NETWORK => 'irc.hackint.eu',
-    IRC_CHANNEL => '#raumzeitlabor',
-    IRC_REJOIN  => 3600, # in seconds
-    REFRESH_INTERVAL => 30,
-};
-
 $|++;
+
+my %opt = (
+    channel => '#raumzeitlabor',
+    nick    => 'RaumZeitWiki',
+    port    => 6667,
+    server  => 'irc.hackint.eu',
+    rejoin  => 3600,  # in seconds
+);
 
 my $init = 1;
 my $feed_reader;
 
-my $irc = new AnyEvent::IRC::Client;
-$irc->connect(IRC_NETWORK, 6667, { nick => BOTNICK });
+GetOptions(\%opt, 'channel', 'nick', 'port', 'server', 'rejoin',);
 
-$irc->reg_cb(registered => sub { print DateTime->now." - Connected to ".IRC_NETWORK."\n"; });
-$irc->reg_cb(join => sub { print DateTime->now." - Joined channel ".IRC_CHANNEL."\n"; });
+my $irc = new AnyEvent::IRC::Client;
+$irc->connect($opt{server}, $opt{port}, { nick => $opt{nick}});
+
+$irc->reg_cb(registered => sub { print DateTime->now." - Connected to ".$opt{network}."\n"; });
+$irc->reg_cb(join => sub { print DateTime->now." - Joined channel ".$opt{channel}."\n"; });
 
 # if we get kicked, we either rejoin after some time or leave the network
 $irc->reg_cb(kick => sub {
     print DateTime->now." - Got kicked";
-    if (IRC_REJOIN) {
-        print ", rejoining channel in ".IRC_REJOIN."s\n";
+    if ($opt{rejoin}) {
+        print ", rejoining channel in ".$opt{rejoin}."s\n";
         my $timer; $timer = AnyEvent->timer(
-            after => IRC_REJOIN,
+            after => $opt{rejoin},
             cb => sub {
                 undef $timer;
-                $irc->send_srv(JOIN => (IRC_CHANNEL));
+                $irc->send_srv(JOIN => ($opt{channel}));
             });
     } else {
         print ", disconnecting\n";
@@ -51,7 +54,7 @@ $irc->reg_cb(disconnect => sub {
     exit 1;
 });
 
-$irc->send_srv(JOIN => (IRC_CHANNEL));
+$irc->send_srv(JOIN => ($opt{channel}));
 
 $feed_reader = AnyEvent::Feed->new (
     url      => 'http://raumzeitlabor.de/w/index.php5?title=Spezial:Letzte_%C3%84nderungen&feed=atom',
@@ -71,7 +74,7 @@ $feed_reader = AnyEvent::Feed->new (
                 my $msg = "Update: ".$entry->title." von ".$entry->author." um ".
                     $entry->modified->time." Uhr (".$entry->id.")";
                 print DateTime->now." - ".$msg."\n";
-                $irc->send_chan(IRC_CHANNEL, PRIVMSG => (IRC_CHANNEL, $msg));
+                $irc->send_chan($opt{channel}, PRIVMSG => ($opt{channel}, $msg));
             }
         }
 
@@ -82,7 +85,7 @@ $feed_reader = AnyEvent::Feed->new (
 
 # if SIGINT is received, leave the network
 my $w = AnyEvent->signal (signal => 'INT', cb => sub {
-    print DateTime->now." - SIGINT received, disconnecting...";
+    print DateTime->now." - SIGINT received, disconnecting...\n";
     $irc->disconnect("shutting down...");
 });
 
