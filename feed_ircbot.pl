@@ -10,6 +10,9 @@ use AnyEvent;
 use AnyEvent::Feed;
 use AnyEvent::IRC::Client;
 
+use Log::Log4perl qw/:easy/;
+Log::Log4perl->easy_init($INFO);
+
 $|++;
 
 my %opt = (
@@ -27,19 +30,20 @@ my @feeds = (
     'http://raumzeitlabor.de/w/index.php5?title=Spezial:Letzte_%C3%84nderungen&feed=atom',
 );
 
-
 GetOptions(\%opt, 'channel=s', 'nick=s', 'port=i', 'server=s', 'rejoin=i', 'ssl=i');
+
+INFO 'starting up';
 
 my @feed_reader;
 my $irc = new AnyEvent::IRC::Client;
 $irc->enable_ssl() if $opt{ssl};
 $irc->connect($opt{server}, $opt{port}, { nick => $opt{nick} });
 
-$irc->reg_cb(registered => sub { print DateTime->now." - Connected to ".$opt{server}."\n"; });
+$irc->reg_cb(registered => sub { INFO "connected to ".$opt{server}; });
 
 $irc->reg_cb(join => sub {
     my ($nick, $channel, $is_myself) = @_;
-    print DateTime->now." - Joined channel ".$opt{channel}."\n" if $is_myself;
+    INFO "joined channel ".$opt{channel} if $is_myself;
 });
 
 # if we get kicked, we either rejoin after some time or leave the network
@@ -47,9 +51,9 @@ $irc->reg_cb(kick => sub {
     my ($kicked_nick, $channel, $is_myself, $msg, $kicker_nick) = @_;
     return unless $is_myself;
 
-    print DateTime->now." - Got kicked";
+    INFO "got kicked";
     if ($opt{rejoin}) {
-        print ", rejoining channel in ".$opt{rejoin}."s\n";
+        INFO "rejoining channel in ".$opt{rejoin}."s";
         my $timer; $timer = AnyEvent->timer(
             after => $opt{rejoin},
             cb => sub {
@@ -57,13 +61,13 @@ $irc->reg_cb(kick => sub {
                 $irc->send_srv(JOIN => ($opt{channel}));
             });
     } else {
-        print ", disconnecting\n";
+        INFO "disconnecting";
         $irc->disconnect;
     }
 });
 
 $irc->reg_cb(disconnect => sub {
-    print DateTime->now." Disconnected\n";
+    INFO "disconnected";
     undef @feed_reader;
     exit 1;
 });
@@ -79,7 +83,7 @@ foreach my $f (@feeds) {
             my ($feed_reader, $new_entries, $feed, $error) = @_;
 
             if (defined $error) {
-                warn "ERROR: $error\n";
+                ERROR $error;
                 return;
             }
 
@@ -89,8 +93,9 @@ foreach my $f (@feeds) {
             for (@$new_entries) {
                 my ($hash, $entry) = @$_;
                 my $msg = "Update: \"".$entry->title."\" von ".$entry->author." um ".
-                    $entry->modified->time." Uhr (".$entry->id.")";
-                print DateTime->now." - ".$msg."\n";
+                    $entry->modified->set_time_zone('local')->strftime("%H:%I")
+                    ." Uhr (".$entry->id.")";
+                INFO $msg;
                 $irc->send_chan($opt{channel}, PRIVMSG => ($opt{channel}, $msg));
             }
         }
@@ -101,7 +106,7 @@ foreach my $f (@feeds) {
 
 # if SIGINT is received, leave the network
 my $w = AnyEvent->signal (signal => 'INT', cb => sub {
-    print DateTime->now." - SIGINT received, disconnecting...\n";
+    WARN "SIGINT received, disconnecting...";
     $irc->disconnect("shutting down...");
 });
 
