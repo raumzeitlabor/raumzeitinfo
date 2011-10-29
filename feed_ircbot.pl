@@ -5,6 +5,7 @@ use warnings;
 
 use EV;
 use DateTime;
+use Digest::SHA qw(sha256_hex);
 use Getopt::Long;
 use AnyEvent;
 use AnyEvent::Feed;
@@ -74,6 +75,8 @@ $irc->reg_cb(disconnect => sub {
 
 $irc->send_srv(join => ($opt{channel}));
 
+my @old_entries;
+
 foreach my $f (@feeds) {
     my $init = 1;
     my $reader = AnyEvent::Feed->new (
@@ -92,11 +95,21 @@ foreach my $f (@feeds) {
 
             for (@$new_entries) {
                 my ($hash, $entry) = @$_;
-                my $msg = "Update: \"".$entry->title."\" von ".$entry->author." um ".
-                    $entry->modified->set_time_zone('local')->strftime("%H:%I")
-                    ." Uhr (".$entry->id.")";
-                INFO $msg;
-                $irc->send_chan($opt{channel}, PRIVMSG => ($opt{channel}, $msg));
+
+                if (sha256_hex($entry->content) ~~ @old_entries) {
+                    WARN "tried to send old item...";
+                } else {
+                    while (scalar(@old_entries) > 100) {
+                        shift(@old_entries);
+                    }
+
+                    push(@old_entries, sha256_hex($entry->content));
+                    my $msg = "Update: \"".$entry->title."\" von ".$entry->author." um ".
+                        $entry->modified->set_time_zone('local')->strftime("%H:%I")
+                            ." Uhr (".$entry->id.")";
+                    INFO $msg;
+                    $irc->send_chan($opt{channel}, PRIVMSG => ($opt{channel}, $msg));
+                }
             }
         }
     );
