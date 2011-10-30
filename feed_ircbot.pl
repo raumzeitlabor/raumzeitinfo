@@ -29,6 +29,7 @@ my %opt = (
 my @feeds = (
     'http://raumzeitlabor.de/feed',
     'http://raumzeitlabor.de/w/index.php5?title=Spezial:Letzte_%C3%84nderungen&feed=atom',
+    'https://twitter.com/statuses/user_timeline/114430885.rss',
 );
 
 GetOptions(\%opt, 'channel=s', 'nick=s', 'port=i', 'server=s', 'rejoin=i', 'ssl=i');
@@ -105,7 +106,7 @@ foreach my $f (@feeds) {
 
                     push(@old_entries, sha256_hex($entry->content));
                     my $msg = "Update: \"".$entry->title."\" von ".$entry->author." um ".
-                        $entry->modified->set_time_zone('local')->strftime("%H:%I")
+                        $entry->issued->set_time_zone('local')->strftime("%H:%I")
                             ." Uhr (".$entry->id.")";
                     INFO $msg;
                     $irc->send_chan($opt{channel}, PRIVMSG => ($opt{channel}, $msg));
