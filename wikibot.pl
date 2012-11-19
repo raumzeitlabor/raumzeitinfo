@@ -104,7 +104,6 @@ my $w = AnyEvent->timer(
             }
 
             $lastupdate = gmtime->datetime;
-            INFO "last update: ".$ltime->datetime;
         }
     }
 );
