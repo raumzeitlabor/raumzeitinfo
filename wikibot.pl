@@ -10,6 +10,7 @@ use POSIX;
 use Getopt::Long;
 use JSON::XS;
 use Time::Piece;
+use Time::Seconds;
 use AnyEvent;
 use AnyEvent::HTTP;
 use AnyEvent::IRC::Client;
@@ -68,14 +69,17 @@ $irc->reg_cb(disconnect => sub {
 
 $irc->send_srv(join => ($opt{channel}));
 
-my $lastupdate = gmtime->datetime;
+my $lastupdate = gmtime;
+$lastupdate -= 5 * ONE_MINUTE;
+$lastupdate = $lastupdate->datetime."Z";
+
 my $w = AnyEvent->timer(
     interval => 300,
     cb => sub {
         my $paged_api_url = $api_url;
-        $paged_api_url .= "&rcstart=".$lastupdate;
+        $paged_api_url .= "&rcend=".$lastupdate;
         INFO "fetching…";
-        http_get $api_url, sub {
+        http_get $paged_api_url, sub {
             my ($body, $hdr) = @_;
             if ($hdr->{Status} !~ /^2/) {
                 WARN "HTTP error: ".$hdr->{Status}.", reason: ".$hdr->{Reason};
@@ -103,7 +107,9 @@ my $w = AnyEvent->timer(
                 $irc->send_chan($opt{channel}, PRIVMSG => ($opt{channel}, $msg));
             }
 
-            $lastupdate = gmtime->datetime;
+            $lastupdate = gmtime;
+            $lastupdate -= 5 * ONE_MINUTE;
+            $lastupdate = $lastupdate->datetime."Z";
         }
     }
 );
