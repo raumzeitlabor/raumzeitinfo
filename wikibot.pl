@@ -90,7 +90,7 @@ my $w = AnyEvent->timer(
             foreach my $page (@{$json->{query}->{recentchanges}}) {
                 my $type = uc substr $page->{type}, 0, 1;
                 my $diff = $page->{newlen} - $page->{oldlen};
-                $diff = ($diff < 0 ? "-" : $diff == 0 ? "+-" : "+").$diff;
+                $diff = ($diff < 0 ? "" : $diff == 0 ? "+-" : "+").$diff;
                 my $title = $page->{title};
                 my $pageid = $page->{pageid};
                 my $oldid = $page->{old_revid};
