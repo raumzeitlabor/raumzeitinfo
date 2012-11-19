@@ -70,7 +70,7 @@ $irc->send_srv(join => ($opt{channel}));
 
 my $lastupdate = gmtime->datetime;
 my $w = AnyEvent->timer(
-    interval => 30,
+    interval => 300,
     cb => sub {
         my $paged_api_url = $api_url;
         $paged_api_url .= "&rcstart=".$lastupdate;
