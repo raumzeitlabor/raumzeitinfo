@@ -100,7 +100,7 @@ my $w = AnyEvent->timer(
                 # mediawiki timestamps are UTC, see https://www.mediawiki.org/wiki/Manual:Timestamp
                 my $time = Time::Piece->strptime($page->{timestamp}, "%Y-%m-%dT%H:%M:%SZ");
                 $time += $time->localtime->tzoffset;
-                $time = $time->datetime;
+                $time = $time->strftime("%H:%I");
 
                 my $msg = "Wiki: [$type] \"$title\" ($diff) von $user um $time Uhr http://rzl.so/w/index.php?pageid=$pageid&diff=$revid&oldid=$oldid";
                 INFO $msg;
