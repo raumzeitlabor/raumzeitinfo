@@ -3,6 +3,8 @@
 use strict;
 use warnings;
 
+use 5.10.0;
+
 use EV;
 use POSIX;
 use Getopt::Long;
@@ -66,7 +68,7 @@ $irc->reg_cb(disconnect => sub {
 
 $irc->send_srv(join => ($opt{channel}));
 
-my $lastupdate = localtime->datetime;
+my $lastupdate = gmtime->datetime;
 my $w = AnyEvent->timer(
     interval => 30,
     cb => sub {
@@ -90,13 +92,19 @@ my $w = AnyEvent->timer(
                 my $oldid = $page->{old_revid};
                 my $revid = $page->{revid};
                 my $user = $page->{user};
-                my ($time) = $page->{timestamp} =~ /T(\d{2}:\d{2})/;
+
+                # mediawiki timestamps are UTC, see https://www.mediawiki.org/wiki/Manual:Timestamp
+                my $time = Time::Piece->strptime($page->{timestamp}, "%Y-%m-%dT%H:%M:%SZ");
+                $time += $time->localtime->tzoffset;
+                $time = $time->datetime;
+
                 my $msg = "Wiki: [$type] \"$title\" ($diff) von $user um $time Uhr http://rzl.so/w/index.php?pageid=$pageid&diff=$revid&oldid=$oldid";
                 INFO $msg;
                 $irc->send_chan($opt{channel}, PRIVMSG => ($opt{channel}, $msg));
             }
-            $lastupdate = localtime->datetime;
-            INFO "last update: $lastupdate";
+
+            $lastupdate = gmtime->datetime;
+            INFO "last update: ".$ltime->datetime;
         }
     }
 );
