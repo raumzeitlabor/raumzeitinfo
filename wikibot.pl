@@ -21,7 +21,7 @@ Log::Log4perl->easy_init($INFO);
 $|++;
 
 my %opt = (
-    channel => '#raumzeitlabor1',
+    channel => '#raumzeitlabor',
     nick    => 'RaumZeitInfo',
     port    => 6667,
     ssl     => 0,
@@ -29,7 +29,7 @@ my %opt = (
     rejoin  => 3600,  # in seconds
 );
 
-my $api_url = 'http://rzl.so/w/api.php?action=query&list=recentchanges&rcprop=title|sizes|user|ids|timestamp&rclimit=10&rcend=!minor&rctoponly&format=json';
+my $api_url = 'http://rzl.so/w/api.php?action=query&list=recentchanges&rcprop=title|sizes|user|ids|timestamp&rclimit=10&rcshow=!minor&rctoponly&format=json';
 
 my $irc = AnyEvent::IRC::Client->new;
 $irc->enable_ssl() if $opt{ssl};
@@ -70,14 +70,16 @@ $irc->reg_cb(disconnect => sub {
 $irc->send_srv(join => ($opt{channel}));
 
 my $lastupdate = gmtime;
-$lastupdate -= 5 * ONE_MINUTE;
+$lastupdate -= 1 * ONE_MINUTE;
 $lastupdate = $lastupdate->datetime."Z";
 
+my $nextupdate = gmtime->datetime."Z";
+
 my $w = AnyEvent->timer(
-    interval => 300,
+    interval => 60,
     cb => sub {
         my $paged_api_url = $api_url;
-        $paged_api_url .= "&rcend=".$lastupdate;
+        $paged_api_url .= "&rcend=".$lastupdate."&rcstart=".$nextupdate;
         INFO "fetching…";
         http_get $paged_api_url, sub {
             my ($body, $hdr) = @_;
@@ -107,9 +109,12 @@ my $w = AnyEvent->timer(
                 $irc->send_chan($opt{channel}, PRIVMSG => ($opt{channel}, $msg));
             }
 
+            INFO "last update: $lastupdate";
             $lastupdate = gmtime;
-            $lastupdate -= 5 * ONE_MINUTE;
+            $lastupdate -= 1 * ONE_MINUTE;
             $lastupdate = $lastupdate->datetime."Z";
+            $nextupdate = gmtime->datetime."Z";
+            INFO "next update: $lastupdate";
         }
     }
 );
